@@ -4,15 +4,19 @@ import type { MetricsMessage } from "../types.js";
 const PORT = 4000;
 const HOST = "127.0.0.1";
 
+const messageByHostname = new Map<string, MetricsMessage>();
+
 function displayNodes() {
-  for (const [key, message] of messageByHostname) {
+  const rows = [];
+  for (const message of messageByHostname.values()) {
     const humanReadableMessage = {
       ...message,
-      memoryUsagePercent: message.memoryUsagePercent.toFixed(2),
-      cpuUsagePercent: message.cpuUsagePercent.toFixed(2),
+      memoryUsagePercent: message.memoryUsagePercent.toFixed(2) + "%",
+      cpuUsagePercent: message.cpuUsagePercent.toFixed(2) + "%",
     };
-    console.log(key, humanReadableMessage);
+    rows.push(humanReadableMessage);
   }
+  console.table(rows);
 }
 
 function isMetricsMessage(message: unknown): message is MetricsMessage {
@@ -35,8 +39,6 @@ function isMetricsMessage(message: unknown): message is MetricsMessage {
 
   return true;
 }
-
-const messageByHostname = new Map<string, MetricsMessage>();
 
 const server = net.createServer((socket) => {
   console.log("Agent connected");
