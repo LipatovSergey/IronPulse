@@ -38,8 +38,7 @@ const socket = net.createConnection({ host: HOST, port: PORT }, () => {
   console.log("Connected to server");
   let previousCpuSnapshot = takeCpuSnapshot();
 
-  let count = 3;
-  const intervalId = setInterval(() => {
+  setInterval(() => {
     const currentCpuSnapshot = takeCpuSnapshot();
     const data: MetricsMessage = {
       type: "metrics",
@@ -57,11 +56,6 @@ const socket = net.createConnection({ host: HOST, port: PORT }, () => {
     const jsonMessage = JSON.stringify(data);
     const readyMessage = jsonMessage + "\n";
     socket.write(readyMessage);
-    count--;
-    if (count === 0) {
-      clearInterval(intervalId);
-      socket.end();
-    }
   }, 2000);
 });
 

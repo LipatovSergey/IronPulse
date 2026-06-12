@@ -4,19 +4,39 @@ import type { MetricsMessage } from "../types.js";
 const PORT = 4000;
 const HOST = "127.0.0.1";
 
-const messageByHostname = new Map<string, MetricsMessage>();
+const OFFLINE_TIMEOUT_MS = 6000;
+const DISPLAY_INTERVAL_MS = 2000;
+
+type NodeState = {
+  hostname: string;
+  latestMetrics: MetricsMessage;
+  lastSeenAt: number;
+};
+
+const nodesByHostname = new Map<string, NodeState>();
 
 function displayNodes() {
-  const rows = [];
-  for (const message of messageByHostname.values()) {
-    const humanReadableMessage = {
-      ...message,
-      memoryUsagePercent: message.memoryUsagePercent.toFixed(2) + "%",
-      cpuUsagePercent: message.cpuUsagePercent.toFixed(2) + "%",
-    };
-    rows.push(humanReadableMessage);
+  if (nodesByHostname.size > 0) {
+    const rows = [];
+    for (const node of nodesByHostname.values()) {
+      const { latestMetrics } = node;
+      const humanReadableMessage = {
+        hostname: node.hostname,
+        status:
+          Date.now() - node.lastSeenAt <= OFFLINE_TIMEOUT_MS
+            ? "online"
+            : "offline",
+        "last seen at": new Date(node.lastSeenAt).toISOString(),
+        cpu: latestMetrics.cpuUsagePercent.toFixed(2) + "%",
+        memory: latestMetrics.memoryUsagePercent.toFixed(2) + "%",
+        uptime: latestMetrics.uptime.toFixed(0) + "s",
+      };
+      rows.push(humanReadableMessage);
+    }
+    console.table(rows);
+  } else {
+    console.log("There is no nodes to display");
   }
-  console.table(rows);
 }
 
 function isMetricsMessage(message: unknown): message is MetricsMessage {
@@ -53,8 +73,11 @@ const server = net.createServer((socket) => {
       try {
         const parsedMessage = JSON.parse(message);
         if (isMetricsMessage(parsedMessage)) {
-          messageByHostname.set(parsedMessage.hostname, parsedMessage);
-          displayNodes();
+          nodesByHostname.set(parsedMessage.hostname, {
+            hostname: parsedMessage.hostname,
+            latestMetrics: parsedMessage,
+            lastSeenAt: Date.now(),
+          });
         } else {
           console.error("Unsupported message");
         }
@@ -73,6 +96,10 @@ const server = net.createServer((socket) => {
     console.log("Socket error: ", error.message);
   });
 });
+
+setInterval(() => {
+  displayNodes();
+}, DISPLAY_INTERVAL_MS);
 
 server.on("error", (error) => {
   console.log("Server error: ", error.message);
